@@ -1,5 +1,5 @@
 from flask import Flask, render_template_string, jsonify
-from database import initialize_db, get_recent_alerts, get_alert_counts, get_connection
+from database import initialize_db, get_recent_alerts, get_alert_counts, get_connection, clear_alerts
 from config import DASHBOARD_PORT
 
 initialize_db()
@@ -90,6 +90,29 @@ DASHBOARD_TEMPLATE = """
             font-size: 0.8rem;
             color: #8b949e;
             margin-bottom: 1.75rem;
+        }
+
+        /* Last updated pill */
+        .last-updated {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.72rem;
+            color: #8b949e;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 999px;
+            padding: 0.2rem 0.65rem;
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+
+        .last-updated .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #3fb950;
+            flex-shrink: 0;
         }
 
         .stats {
@@ -230,6 +253,8 @@ DASHBOARD_TEMPLATE = """
             justify-content: space-between;
             align-items: center;
             margin-bottom: 0.75rem;
+            gap: 0.5rem;
+            flex-wrap: wrap;
         }
 
         .toolbar select {
@@ -240,6 +265,11 @@ DASHBOARD_TEMPLATE = """
             padding: 0.3rem 0.6rem;
             font-size: 0.8rem;
             cursor: pointer;
+        }
+
+        .toolbar-buttons {
+            display: flex;
+            gap: 0.5rem;
         }
 
         .refresh-btn {
@@ -253,6 +283,23 @@ DASHBOARD_TEMPLATE = """
         }
 
         .refresh-btn:hover { background: #30363d; }
+
+        /* Clear Alerts button — destructive styling */
+        .clear-btn {
+            background: #3d1a1a;
+            color: #f85149;
+            border: 1px solid #6e2020;
+            border-radius: 6px;
+            padding: 0.3rem 0.8rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+
+        .clear-btn:hover {
+            background: #5a2020;
+            border-color: #f85149;
+        }
 
         .table-wrap {
             background: #161b22;
@@ -291,7 +338,13 @@ DASHBOARD_TEMPLATE = """
     <h1>NetWatch</h1>
     <span class="tagline"><span class="pulse"></span>Live network intrusion detection</span>
 </div>
-<p class="subtitle">Network Intrusion Detection System — auto-refreshes every 10 seconds</p>
+<p class="subtitle">
+    Network Intrusion Detection System — auto-refreshes every 10 seconds
+    <span class="last-updated">
+        <span class="dot"></span>
+        Last updated: <span id="last-updated-time">just now</span>
+    </span>
+</p>
 
 <div class="stats">
     <div class="stat-card">
@@ -367,7 +420,10 @@ DASHBOARD_TEMPLATE = """
                 <option value="MEDIUM">Medium only</option>
                 <option value="LOW">Low only</option>
             </select>
-            <button class="refresh-btn" onclick="refreshData()">Refresh now</button>
+            <div class="toolbar-buttons">
+                <button class="refresh-btn" onclick="refreshData()">Refresh now</button>
+                <button class="clear-btn" onclick="clearAlerts()">Clear alerts</button>
+            </div>
         </div>
     </div>
 </div>
@@ -464,6 +520,12 @@ let donutChart = new Chart(donutCtx, {
     }
 });
 
+function updateLastUpdatedTime() {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    document.getElementById('last-updated-time').textContent = timeStr;
+}
+
 function applyFilter() {
     const val = document.getElementById('severity-filter').value;
     document.querySelectorAll('#alert-table-body tr[data-severity]').forEach(row => {
@@ -520,8 +582,25 @@ function refreshData() {
             donutChart.data.datasets[0].data = data.breakdown.map(d => d.count);
             donutChart.data.datasets[0].backgroundColor = DONUT_COLORS.slice(0, data.breakdown.length);
             donutChart.update();
+
+            // Stamp the refresh time
+            updateLastUpdatedTime();
         });
 }
+
+function clearAlerts() {
+    if (!confirm('Clear all alerts from the database? This cannot be undone.')) return;
+    fetch('/api/clear', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                refreshData();
+            }
+        });
+}
+
+// Set initial timestamp on page load
+updateLastUpdatedTime();
 
 setInterval(refreshData, 10000);
 </script>
@@ -552,6 +631,12 @@ def api_alerts():
         "timeline":  get_alerts_over_time(),
         "breakdown": get_alert_type_breakdown()
     })
+
+
+@app.route("/api/clear", methods=["POST"])
+def api_clear():
+    clear_alerts()
+    return jsonify({"status": "ok"})
 
 
 if __name__ == "__main__":

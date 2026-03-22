@@ -110,3 +110,11 @@ def get_alert_counts():
         counts[r["severity"]] = r["count"]
     counts["TOTAL"] = sum(counts.values())
     return counts
+
+
+def clear_alerts():
+    """Delete all rows from the alerts table."""
+    conn = get_connection()
+    conn.execute("DELETE FROM alerts")
+    conn.commit()
+    conn.close()
