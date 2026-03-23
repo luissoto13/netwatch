@@ -68,9 +68,16 @@ DASHBOARD_TEMPLATE = """
 
         .header {
             display: flex;
-            align-items: baseline;
+            align-items: center;
+            justify-content: space-between;
             gap: 0.75rem;
             margin-bottom: 0.25rem;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: baseline;
+            gap: 0.75rem;
         }
 
         .header h1 {
@@ -335,8 +342,11 @@ DASHBOARD_TEMPLATE = """
 <body>
 
 <div class="header">
-    <h1>NetWatch</h1>
-    <span class="tagline"><span class="pulse"></span>Live network intrusion detection</span>
+    <div class="header-left">
+        <h1>NetWatch</h1>
+        <span class="tagline"><span class="pulse"></span>Live network intrusion detection</span>
+    </div>
+    <button class="clear-btn" onclick="clearAlerts()">Clear alerts</button>
 </div>
 <p class="subtitle">
     Network Intrusion Detection System — auto-refreshes every 10 seconds
@@ -420,10 +430,7 @@ DASHBOARD_TEMPLATE = """
                 <option value="MEDIUM">Medium only</option>
                 <option value="LOW">Low only</option>
             </select>
-            <div class="toolbar-buttons">
-                <button class="refresh-btn" onclick="refreshData()">Refresh now</button>
-                <button class="clear-btn" onclick="clearAlerts()">Clear alerts</button>
-            </div>
+            <button class="refresh-btn" onclick="refreshData()">Refresh now</button>
         </div>
     </div>
 </div>
