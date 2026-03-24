@@ -118,3 +118,65 @@ def clear_alerts():
     conn.execute("DELETE FROM alerts")
     conn.commit()
     conn.close()
+
+
+# ── Geo-IP cache ──────────────────────────────────────────────
+
+def get_cached_geo(ip):
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT country_code, country_name, city, latitude, longitude FROM geo_cache WHERE ip_address = ?",
+        (ip,)
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def cache_geo(ip, country_code, country_name, city, latitude, longitude):
+    conn = get_connection()
+    conn.execute("""
+        INSERT OR REPLACE INTO geo_cache
+            (ip_address, country_code, country_name, city, latitude, longitude)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (ip, country_code, country_name, city, latitude, longitude))
+    conn.commit()
+    conn.close()
+
+
+def get_geo_stats():
+    """Return top 10 countries by alert count (joined via geo_cache)."""
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT g.country_code, g.country_name, COUNT(*) as alert_count
+        FROM alerts a
+        JOIN geo_cache g ON a.src_ip = g.ip_address
+        WHERE g.country_code IS NOT NULL
+        GROUP BY g.country_code
+        ORDER BY alert_count DESC
+        LIMIT 10
+    """).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+# ── ARP tracking ──────────────────────────────────────────────
+
+def log_arp(ip_address, mac_address):
+    conn = get_connection()
+    conn.execute("""
+        INSERT INTO arp_log (ip_address, mac_address)
+        VALUES (?, ?)
+    """, (ip_address, mac_address))
+    conn.commit()
+    conn.close()
+
+
+def get_known_mac(ip_address):
+    """Return the first MAC we ever saw for this IP, or None."""
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT mac_address FROM arp_log WHERE ip_address = ? ORDER BY seen_at ASC LIMIT 1",
+        (ip_address,)
+    ).fetchone()
+    conn.close()
+    return row["mac_address"] if row else None

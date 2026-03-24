@@ -37,3 +37,22 @@ CREATE TABLE IF NOT EXISTS blacklist (
     reason          TEXT,
     added_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Geo-IP lookup cache so we don't re-lookup every packet
+CREATE TABLE IF NOT EXISTS geo_cache (
+    ip_address      TEXT PRIMARY KEY,
+    country_code    TEXT,
+    country_name    TEXT,
+    city            TEXT,
+    latitude        REAL,
+    longitude       REAL,
+    looked_up_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ARP observation log for spoofing detection
+CREATE TABLE IF NOT EXISTS arp_log (
+    arp_id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ip_address      TEXT NOT NULL,
+    mac_address     TEXT NOT NULL,
+    seen_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
